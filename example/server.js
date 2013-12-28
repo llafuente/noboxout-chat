@@ -15,14 +15,13 @@ function memcached_reconnect() {
     console.log("__memcached_reconnect", arguments);
     // no arguments - connection has been closed
     memcached.connect();
-};
-memcached = new memcache.Client(11211, "lab01.noboxout.com");
+}
+
+memcached = new memcache.Client(11211, "localhost");
 memcached.on("close", memcached_reconnect);
 memcached.on("end", memcached_reconnect);
 memcached.on("timeout", memcached_reconnect);
 memcached.on("error", memcached_reconnect);
-
-
 
 
 User.Implements({
@@ -38,13 +37,15 @@ User.Implements({
                 return callback(new Error("session-not-found"));
             }
 
+            var rjson;
+
             try {
-                result = JSON.parse(result);
-            } catch(err) {
-                return callback(err);
+                rjson = JSON.parse(result);
+            } catch (parse_err) {
+                return callback(parse_err);
             }
 
-            this.userdata = result.data.userdata;
+            this.userdata = rjson.data.userdata;
             callback();
         }.bind(this));
     },
@@ -66,7 +67,7 @@ User.Implements({
 });
 
 
-memcached.on("connect", function(){
+memcached.on("connect", function () {
     // no arguments - we"ve connected
     console.log("-- memcached is ready!");
 
@@ -75,27 +76,32 @@ memcached.on("connect", function(){
 
         mgr = new Manager();
 
-        mgr.create_server("s5", "test-server-01", "welcome to test sever 01", {});
-        mgr.create_room("s5", "global", "test-room-001", "welcome room 01", {});
+        mgr.create_server("s5", "test-server-01", "welcome to sever 5", {});
+        mgr.create_room("s5", "global", "global", "welcome room global", {
+            is_public: true,
+            public_userlist: false,
+            enter_notifications: false,
+            leave_notifications: false
+        });
 
         io = io.listen(8080);
 
         socketio_protocol(mgr, io);
 
-        io.set("log level", 5);
+        io.set("log level", 2);
         io.set("log color", true);
 
 
-        mgr.on(Manager.USER_JOIN, function(user) {
+        mgr.on(Manager.USER_JOIN, function (user) {
             console.log("user-join", arguments);
             //by default join global room
 
             mgr.room_join(user.session_id, "global");
             if (user.userdata.us_tm_id) {
-                team_room_id = "team/" + user.userdata.us_tm_id;
+                var team_room_id = "team/" + user.userdata.us_tm_id;
                 if (!mgr.get_server(user.server_id).get_room(team_room_id)) {
                     mgr.create_room(user.server_id, team_room_id, "alliance", "", {
-                        requisites: function(session_id) {
+                        requisites: function (session_id) {
                             return mgr.get_user(session_id).userdata.us_tm_id === user.userdata.us_tm_id;
                         }
                     });
@@ -109,7 +115,8 @@ memcached.on("connect", function(){
 
 memcached.connect();
 
-//repl for JUST IN TIME DEBUG :)
+// repl for JUST IN TIME DEBUG :)
+// and set welcomes :)
 var repl = require("repl").start("> ");
 
 repl.context.mgr = mgr;
