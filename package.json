@@ -1,0 +1,40 @@
+{
+  "name": "noboxout-chat",
+  "version": "0.0.1",
+  "description": "Noboxout chat, used in www.mesians.com",
+  "main": "./index.js",
+  "keywords": [
+    "chat"
+  ],
+  "directories": {
+    "lib": ".",
+    "test": "test"
+  },
+  "scripts" : {
+    "test" : "tap test/test*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/llafuente/noboxout-chat.git"
+  },
+  "author": {
+    "name": "Luis Lafuente",
+    "email": "llafuente@noboxout.com",
+    "url": "http://www.noboxout.com"
+  },
+  "license": "MIT",
+  "engine": {
+    "node": ">=0.4"
+  },
+  "dependencies" : {
+    "mysql" : "2.0.0-alpha5",
+    "function-enhancements" : "*",
+    "node-class" : "*"
+  },
+  "devDependencies": {
+    "tap" : "0.3.2",
+    "memcache" : "*",
+    "socket.io" : "*",
+    "socket.io-client" : "*"
+  }
+}

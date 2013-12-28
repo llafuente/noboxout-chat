@@ -1,0 +1,237 @@
+<script src="http://ajax.googleapis.com/ajax/libs/mootools/1.4.5/mootools-yui-compressed.js"></script>
+<script src="http://localhost:8080/socket.io/socket.io.js"></script>
+
+<style>
+* {margin: 0; padding: 0;}
+body {
+    background: rgb(102, 63, 19);
+}
+#chat-container {
+}
+#chat-tab-container {
+    padding: 2px 0px;
+    height: 16px;
+}
+  #chat-tab-container li {
+    display: inline;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: none repeat scroll 0% 0% rgb(64, 40, 12);
+    margin-right: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: rgb(242, 179, 61);
+  }
+  #chat-tab-container li.selected {
+    font-weight: bold;
+  }
+  #chat-tab-container li span.counter {
+    display:none;
+  }
+  #chat-tab-container li.unreaded span.counter {
+    display: inherit;
+  }
+
+#chat-log-container {
+    height: 101px;
+}
+  #chat-log {
+    overflow-y: scroll; height: 101px; white-space: pre; margin-right: 200px;
+    color: rgb(242, 179, 61);
+    font: Arial,Helvetica;
+    font-size: 13px;
+    line-height: 16px;
+  }
+  #chat-users {
+    overflow-y: scroll; height: 101px; width: 200px; float: right;
+    color: rgb(242, 179, 61);
+    font: Arial,Helvetica;
+    font-size: 13px;
+    line-height: 16px;
+  }
+#chat-message-container {
+    background-color: rgb(118, 95, 35);
+    border-top: 1px solid rgb(0, 0, 0);
+    position: relative;
+    height: 25px;
+}
+#chat-message-left {
+    margin-right: 120px;
+}
+  #chat-message {
+    padding: 0px;
+    border: 0px none;
+    border-radius: 0px;
+    margin: 0px;
+    width: 100%;
+    display: block;
+    height: 25px;
+    background-color: transparent;
+    resize: none;
+    outline: medium none;
+  }
+  #chat-message-submit {
+    margin: 0px;
+    padding: 0px;
+    width: 120px;
+    height: 25px;
+    border: 0;
+    border-radius: 3px;
+    background-color: rgb(237, 216, 161);
+    position: absolute;
+    right: 0px;
+    bottom: 0px;
+    color: rgb(0, 0, 0);
+  }
+</style>
+
+<div id="chat-container">
+  <div id="chat-tab-container">
+    <ul id="chat-tab-ul">
+    </ul>
+  </div>
+  <div id="chat-log-container">
+    <ul id="chat-users">
+    </ul>
+    <div id="chat-log">
+    </div>
+  </div>
+  <div id="chat-message-container">
+    <div id="chat-message-left">
+      <input type="text" name="chat" id="chat-message" autocomplete="off">
+    </div>
+    <input type="submit" name="submit" id="chat-message-submit" value="Enviar">
+  </div>
+</div>
+
+<script>
+
+    function current_date() {
+        var d = new Date(),
+            h = d.getHours(),
+            m = d.getMinutes(),
+            s = d.getSeconds();
+
+        return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+    }
+
+
+(function () {
+    var socket = io.connect('http://localhost:8080/chat'),
+        current_room_id = "global",
+        rooms = {
+        },
+        session_id = window.location.search.replace( "?", "" );
+        if(!session_id) {
+            session_id = "mesians/s4/session:21411f276f9005ec6d9c683cfe6a7ac0";
+        }
+    console.log("SESSION-ID:", session_id);
+
+    function refresh_log(text) {
+        var log = document.id("chat-log");
+        log.set("text", text.join("\r\n"));
+        log.scrollTo(0, log.scrollHeight);
+    }
+
+    var attached = false;
+    socket.on('connect', function () {
+        if (!attached) {
+            console.log("attach!!");
+            attached = true;
+
+            console.log("connecting people");
+            socket.on('server:join', function (data) {
+                console.log("joined server!!");
+
+                socket.on('room:join', function (data) {
+                    console.log('room:join', data);
+
+                    if (!rooms[data.room_id]) {
+                        rooms[data.room_id] = {
+                            log: [data.message],
+                            users: [],
+                            tab: new Element("li", {text: data.room_name, "data-room_id": data.room_id}),
+                            unreaded: 0,
+                            counter: new Element("span", {text: " (0)", "class": "counter"}),
+                        };
+
+                        rooms[data.room_id].counter.inject(rooms[data.room_id].tab);
+
+                        rooms[data.room_id].tab.inject(document.id("chat-tab-ul"));
+                        select_tab({target: rooms[data.room_id].tab});
+                    } else {
+                        rooms[data.room_id].log.push(data.message);
+                    }
+
+                    refresh_log(rooms[data.room_id].log);
+                });
+
+                socket.on('room:update', function (data) {
+                    console.log('room:update', data);
+                    var i;
+
+                    users = document.id("chat-users");
+                    users.empty();
+
+                    for (i = 0; i < data.users.length; ++i) {
+                        new Element("li", {text: data.users[i].name}).inject(users);
+                    }
+                });
+
+                socket.on('room:message', function (data) {
+                    var room = rooms[data.room_id];
+
+                    room.log.push("[" + current_date() + "] " + data.from + " > " + data.text);
+
+                    if (data.room_id === current_room_id) {
+                        refresh_log(room.log);
+                    } else {
+                        // 1 unreaded
+                        ++room.unreaded;
+                        room.counter.set("text", " (" + room.unreaded + ")");
+                        room.tab.addClass("unreaded");
+                    }
+                });
+            });
+        }
+
+        socket.emit('login', { session_id: session_id, server: "s5" });
+    });
+
+    var tabs = document.id("chat-tab-container");
+    function select_tab(e) {
+        tabs.getElements("li").removeClass("selected");
+        e.target.addClass("selected").removeClass("unreaded");
+
+
+        current_room_id = e.target.getAttribute("data-room_id");
+
+        rooms[current_room_id].unreaded = 0;
+        refresh_log(rooms[current_room_id].log);
+        console.log(current_room_id);
+    }
+    tabs.addEvent("click:relay(li)", select_tab);
+
+    document.id("chat-message-submit").addEvent("click", function(e) {
+        if (e) {
+            e.stop();
+            e.preventDefault();
+        }
+
+        var msg_el = document.id("chat-message"),
+            text = msg_el.get("value");
+
+        msg_el.set("value", "");
+
+        socket.emit('room:message', { text: text, room_id: current_room_id });
+    });
+
+    document.id("chat-message").addEvent("keyup", function(event){
+        if (event.code === 13) {
+            document.id("chat-message-submit").fireEvent("click");
+        }
+    });
+
+}());
+
+</script>
