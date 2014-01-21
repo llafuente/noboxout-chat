@@ -29,6 +29,7 @@
   "dependencies" : {
     "mysql" : "2.0.0-alpha5",
     "function-enhancements" : "*",
+    "object-enhancements" : "*",
     "node-class" : "*"
   },
   "devDependencies": {

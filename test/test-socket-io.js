@@ -1,4 +1,5 @@
-var tap = require("tap"),
+var Fun = require("function-enhancements"),
+    tap = require("tap"),
     test = tap.test,
     users = {
         "test-user-id-001" : { name: "TEST01"},
@@ -19,7 +20,8 @@ var tap = require("tap"),
     session_id2 = "test-user-id-002",
     socket1,
     socket2,
-    file;
+    file,
+    port = 5555;
 
 // destroy cache in order to create a second client,
 // nasty thing btw!
@@ -32,32 +34,30 @@ io_client2 = require("socket.io-client");
 // end of this thing
 
 
-User.Implements({
-    load_userdata: function (callback) {
-        //here you need to call the callback with true if it's a valid user, false otherwise
-        if (users[this.session_id]) {
-            this.userdata = users[this.session_id];
-            this.emit("load_userdata", [this.userdata]);
-            callback(null);
-        } else {
-            callback(new Error("invalid-sessionid"));
-        }
-    },
-    get_username: function () {
-        return this.userdata.name;
-    },
-    relay_message: function (message, callback) {
-        //console.log("#->message", this.session_id, JSON.stringify(message));
-
-        this.connection.emit(message.type, message);
-
-        setTimeout(callback, 500);
-    },
-    end_connection: function () {
-        this.emit("end_connection", []);
-
-        //console.log("## ===> end connection ********");
+User.method("load_userdata", function (callback) {
+    //here you need to call the callback with true if it's a valid user, false otherwise
+    if (users[this.session_id]) {
+        this.userdata = users[this.session_id];
+        this.emit("load_userdata", [this.userdata]);
+        callback(null);
+    } else {
+        callback(new Error("invalid-sessionid"));
     }
+});
+User.method("get_username", function () {
+    return this.userdata.name;
+});
+User.method("relay_message", function (message, callback) {
+    //console.log("#->message", this.session_id, JSON.stringify(message));
+
+    this.connection.emit(message.type, message);
+
+    setTimeout(callback, 500);
+});
+User.method("end_connection", function () {
+    this.emit("end_connection", []);
+
+    //console.log("## ===> end connection ********");
 });
 
 
@@ -69,10 +69,9 @@ test("create manager & listen", function (t) {
     mgr.create_server("s5", "test-server-01", "welcome to test sever 01", {});
     mgr.create_room("s5", "global", "test-room-001", "welcome room 01", {});
 
-    io = io.listen(8080);
+    io = io.listen(port);
 
     socketio_protocol(mgr, io);
-
 
     io.enable("browser client minification");  // send minified client
     io.enable("browser client gzip");          // gzip the file
@@ -86,11 +85,11 @@ test("create manager & listen", function (t) {
 test("create client", function (t) {
     console.log("\n\n");
 
-    var end_wrap = (function() { t.end(); }).after(2);
+    var end_wrap = Fun.after(function() { t.end(); }, 2);
 
-    socket1 = io_client.connect('http://localhost:8080/chat');
+    socket1 = io_client.connect('http://localhost:' + port +'/chat');
 
-    socket2 = io_client2.connect('http://localhost:8080/chat');
+    socket2 = io_client2.connect('http://localhost:' + port + '/chat');
 
     socket1.on('connect', function() {
         end_wrap();
@@ -104,7 +103,7 @@ test("create client", function (t) {
 test("send session_id", function (t) {
     console.log("\n\n");
 
-    var end_wrap = (function() { t.end(); }).after(2);
+    var end_wrap = Fun.after(function() { t.end(); }, 2);
 
     socket1.on("server:join", function(data) {
         t.equal(data.success, true, "user1 login successfully");
@@ -125,7 +124,7 @@ test("send session_id", function (t) {
 test("users join", function (t) {
     console.log("\n\n");
 
-    var end_wrap = (function() { t.end(); }).after(2);
+    var end_wrap = Fun.after(function() { t.end(); }, 2);
 
     socket1.once("room:join", function(data) {
         t.equal(data.room_id, "global", "user1 join global room");
@@ -146,7 +145,7 @@ test("users join", function (t) {
 test("user1 private to user2", function (t) {
     console.log("\n\n");
 
-    var end_wrap = (function() { t.end(); }).after(2);
+    var end_wrap = Fun.after(function() { t.end(); }, 2);
 
     socket1.once("room:join", function(data) {
         t.equal(data.room_id, "s5/test-user-id-002/test-user-id-001", "user1 join! check room name");
@@ -179,7 +178,7 @@ test("user2 private to user1 (error)", function (t) {
 test("user2 speaks in the private", function (t) {
     console.log("\n\n");
 
-    var end_wrap = (function() { t.end(); }).after(2);
+    var end_wrap = Fun.after(function() { t.end(); }, 2);
 
     socket1.once("room:message", function(data) {
         console.log("error!!", data);
